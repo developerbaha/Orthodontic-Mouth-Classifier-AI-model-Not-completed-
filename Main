@@ -1,0 +1,73 @@
+import os
+import cv2
+import numpy as np
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.utils import to_categorical
+
+# Define constants
+IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 128
+NUM_CLASSES = 7
+DATA_DIR = "path/to/your/data"
+NUM_EPOCHS = 10
+BATCH_SIZE = 32
+
+# Function to load images from folders
+def load_data():
+    images = []
+    labels = []
+    for class_index, class_name in enumerate(os.listdir(DATA_DIR)):
+        class_dir = os.path.join(DATA_DIR, class_name)
+        for image_name in os.listdir(class_dir):
+            image_path = os.path.join(class_dir, image_name)
+            image = cv2.imread(image_path)
+            image = cv2.resize(image, (IMAGE_WIDTH, IMAGE_HEIGHT))
+            images.append(image)
+            labels.append(class_index)
+    images = np.array(images)
+    labels = np.array(labels)
+    return images, labels
+
+# Load images and labels
+images, labels = load_data()
+
+# Split the data into training, validation, and testing sets
+train_images, test_images, train_labels, test_labels = train_test_split(images, labels, test_size=0.2, random_state=42)
+train_images, val_images, train_labels, val_labels = train_test_split(train_images, train_labels, test_size=0.2, random_state=42)
+
+# Preprocess the images (normalize pixel values)
+train_images = train_images.astype('float32') / 255.0
+val_images = val_images.astype('float32') / 255.0
+test_images = test_images.astype('float32') / 255.0
+
+# Convert labels to one-hot encoding
+train_labels = to_categorical(train_labels, NUM_CLASSES)
+val_labels = to_categorical(val_labels, NUM_CLASSES)
+test_labels = to_categorical(test_labels, NUM_CLASSES)
+
+# Define the CNN architecture
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(IMAGE_WIDTH, IMAGE_HEIGHT, 3)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dense(NUM_CLASSES, activation='softmax')
+])
+
+# Compile the model
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Train the model
+model.fit(train_images, train_labels, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE, validation_data=(val_images, val_labels))
+
+# Evaluate the model
+test_loss, test_acc = model.evaluate(test_images, test_labels)
+print('Test accuracy:', test_acc)
